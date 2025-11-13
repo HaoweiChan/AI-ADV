@@ -1,0 +1,108 @@
+name: push internal image
+
+on:
+  push:
+    branches: [master]
+    tags:
+      - "*"
+
+env:
+  BUILDKIT_NO_CLIENT_TOKEN: 1
+  NODE_TLS_REJECT_UNAUTHORIZED: 0
+  HTTP_PROXY: http://mtkhproxy:3128
+  HTTPS_PROXY: http://mtkhproxy:3128
+  DOCKER_ORG: srv-aas1
+  DOCKER_LATEST: latest
+
+jobs:
+  release-image:
+    name: release image
+    runs-on: ubuntu-latest-hw
+    steps:
+      - name: add certificates
+        uses: actions/mtk-cert-action@v1.0.0
+
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # all history for all branches and tags
+
+      - name: login to mlop DockerHub
+        uses: actions/login-action@v1.0.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: mtkhmcr.mediatek.inc
+
+      - name: setup QEMU
+        uses: actions/setup-qemu-action@v1.0.0
+        with:
+          image: mtkhmcr.mediatek.inc/mlop/runner/binfmt:latest
+
+      - name: setup Docker context for Buildx
+        id: buildx-context
+        run: docker context create builders || docker context use builders
+
+      - name: setup Docker Buildx
+        uses: actions/setup-buildx-action@v1.0.0
+        with:
+          endpoint: builders
+          version: v0.23.0
+          driver-opts: |
+            image=mtkhmcr.mediatek.inc/mlop/moby/buildkit:buildx-stable-1
+          config-inline: |
+            debug = true
+            insecure-entitlements = [ "network.host", "security.insecure" ]
+            [registry."hw-mirror.mediatek.inc:5000"]
+              http = true
+              insecure = true
+            [registry."mtkhmcr.mediatek.inc"]
+              http = false
+              insecure = true
+      
+      - name: login to DockerHub
+        uses: actions/login-action@v1.0.0
+        with:
+          username: ${{ secrets.AAS1_DOCKER_USERNAME }}
+          password: ${{ secrets.AAS1_DOCKER_PASSWORD }}
+          registry: mtkhmcr.mediatek.inc
+
+      - name: get metadata
+        id: sha
+        run: |
+          echo REPO_NAME=$(echo ${ GITHUB_REPOSITORY } | awk -F"/" '{ print tolower($2) }') >> $GITHUB_OUTPUT
+          echo GITHUB_SHA=${ GITHUB_SHA } >> $GITHUB_OUTPUT
+
+      - name: Docker metadata
+        id: meta
+        uses: actions/metadata-action@v1.0.0
+        with:
+          images: |
+            mtkhmcr.mediatek.inc/${{ env.DOCKER_ORG }}/${{ steps.sha.outputs.REPO_NAME }}
+          tags: |
+            type=semver,pattern={{ version }},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,priority=100,prefix=,suffix=,format=long
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/heads/') }}
+
+      - name: build and push
+        uses: actions/build-push-action@v1.0.0
+        env:
+          ACTIONS_RUNTIME_TOKEN: "" # See https://gitea.com/gitea/act_runner/issues/119
+        with:
+          context: .
+          file: Dockerfile
+          platforms: |
+            linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          provenance: false
+          sbom: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          target: internalimage
+          build-args: |
+            DRONE_COMMIT=${{ steps.sha.outputs.GITHUB_SHA }}
+            LIC_DVCBOT_NET_KEY=${{ secrets.LIC_DVCBOT_NET_KEY }}
+            HTTPS_PROXY=http://mtkhproxy:3128
+            HTTP_PROXY=http://mtkhproxy:3128
+          cache-from: type=registry,ref=mtkhmcr.mediatek.inc/${{ env.DOCKER_ORG }}/${{ steps.sha.outputs.REPO_NAME }}:buildcache
+          cache-to: type=registry,ref=mtkhmcr.mediatek.inc/${{ env.DOCKER_ORG }}/${{ steps.sha.outputs.REPO_NAME }}:buildcache,image-manifest=true,oci-mediatypes=true,mode=max

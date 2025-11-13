@@ -1,0 +1,190 @@
+name: Jira integration
+
+on:
+  create:
+    types:
+      - branch
+  pull_request_target:
+    types: [opened, closed]
+  push:
+    branches:
+      - "*"
+
+env:
+  BUILDKIT_NO_CLIENT_TOKEN: 1
+  NODE_TLS_REJECT_UNAUTHORIZED: 0
+
+jobs:
+  jira-branch:
+    runs-on: jira-jobs
+    if: github.event.ref_type == 'branch'
+    name: create new branch
+    steps:
+      - name: add certificate
+        uses: actions/mtk-cert-action@v1.0.0
+
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: login to DockerHub
+        uses: actions/login-action@v1.0.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: mtkhmcr.mediatek.inc
+
+      - name: pull Jira image
+        run: docker pull mtkhmcr.mediatek.inc/mlop/go-jira:0.3.0
+
+      - name: transition to in progress on branch event
+        uses: actions/jira-action@v0.2.0
+        with:
+          insecure: true
+          issue_format: "([A-Z0-9]{1,10}-[1-9][0-9]*)"
+          token: ${{ secrets.JIRA_TOKEN }}
+          ref: ${{ github.ref_name }}
+          transition: "Start Progress"
+          assignee: ${{ gitea.actor }}
+
+  open-pull-request:
+    name: transition to in review when pull request is created
+    runs-on: jira-jobs
+    if: github.event_name == 'pull_request_target' && github.event.action == 'opened'
+    steps:
+      - name: add certificate
+        uses: actions/mtk-cert-action@v1.0.0
+
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: login to DockerHub
+        uses: actions/login-action@v1.0.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: mtkhmcr.mediatek.inc
+
+      - name: pull Jira image
+        run: docker pull mtkhmcr.mediatek.inc/mlop/go-jira:0.3.0
+
+      - name: transition to in review when pull request is created
+        uses: actions/jira-action@v0.2.0
+        with:
+          insecure: true
+          issue_format: "([A-Z0-9]{1,10}-[1-9][0-9]*)"
+          token: ${{ secrets.JIRA_TOKEN }}
+          ref: ${{ github.event.pull_request.title }}
+          transition: "Finish Coding"
+          assignee: ${{ github.actor }}
+          comment: |
+            [${{ github.event.pull_request.user.login }}] [color:#00875A]{{ github.event.pull_request.state }}[/color] pull request from repository [color:#ff8b00]${{ github.repository }}[/color] [color:#00875A]${{ github.event.pull_request.head.ref }}[/color] to [color:#00875A]${{ github.event.pull_request.base.ref }}[/color] branch.
+
+            See the detailed information from pull request [link|${{ github.event.pull_request.html_url }}]
+            Pull request: *${{ github.event.pull_request.title }}*
+
+  closed-pull-request:
+    name: closed pull request
+    runs-on: jira-jobs
+    if: github.event_name == 'pull_request_target' && github.event.action == 'closed' && github.event.pull_request.merged == false
+    steps:
+      - name: add certificate
+        uses: actions/mtk-cert-action@v1.0.0
+
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: login to DockerHub
+        uses: actions/login-action@v1.0.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: mtkhmcr.mediatek.inc
+
+      - name: pull Jira image
+        run: docker pull mtkhmcr.mediatek.inc/mlop/go-jira:0.3.0
+
+      - name: transition to pull request closed
+        uses: actions/jira-action@v0.2.0
+        with:
+          insecure: true
+          issue_format: "([A-Z0-9]{1,10}-[1-9][0-9]*)"
+          token: ${{ secrets.JIRA_TOKEN }}
+          ref: ${{ github.event.pull_request.title }}
+          transition: "Finish Coding"
+          comment: |
+            [${{ github.event.pull_request.user.login }}] [color:#d9368b]${{ github.event.pull_request.state }}[/color] pull request from repository [color:#ff8b00]${{ github.repository }}[/color] [color:#00875A]${{ github.event.pull_request.head.ref }}[/color] to [color:#00875A]${{ github.event.pull_request.base.ref }}[/color] branch.
+
+            See the detailed information from pull request [link|${{ github.event.pull_request.html_url }}]
+            Pull request: *${{ github.event.pull_request.title }}*
+
+  jira-push-event:
+    name: transition to in progress on push event
+    if: github.event_name == 'push'
+    runs-on: jira-jobs
+    steps:
+      - name: add certificate
+        uses: actions/mtk-cert-action@v1.0.0
+
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: login to DockerHub
+        uses: actions/login-action@v1.0.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: mtkhmcr.mediatek.inc
+
+      - name: pull Jira image
+        run: docker pull mtkhmcr.mediatek.inc/mlop/go-jira:0.3.0
+
+      - name: transition to in progress on push event
+        uses: actions/jira-action@v0.2.0
+        with:
+          insecure: true
+          issue_format: "([A-Z0-9]{1,10}-[1-9][0-9]*)"
+          token: ${{ secrets.JIRA_TOKEN }}
+          ref: ${{ github.event.head_commit.message }}
+          transition: "Start Progress"
+          assignee: ${{ github.event.head_commit.author.username }}
+          comment: |
+            [${{ github.event.pusher.username }}] push code to repository [color:#ff8b00]${{ github.repository }}[/color] [color:#00875A]${{ github.ref }}[/color] branch.
+
+            See the detailed information from [commit|link|${{ github.event.head_commit.url }}]
+            ${{ github.event.head_commit.message }}
+
+  jira-merge-request:
+    name: transition to merge and deploy
+    runs-on: jira-jobs
+    if: github.event.pull_request.merged
+    steps:
+      - name: add certificate
+        uses: actions/mtk-cert-action@v1.0.0
+
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: login to DockerHub
+        uses: actions/login-action@v1.0.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: mtkhmcr.mediatek.inc
+
+      - name: pull Jira image
+        run: docker pull mtkhmcr.mediatek.inc/mlop/go-jira:0.3.0
+
+      - name: transition to review
+        uses: actions/jira-action@v0.2.0
+        with:
+          insecure: true
+          issue_format: "([A-Z0-9]{1,10}-[1-9][0-9]*)"
+          token: ${{ secrets.JIRA_TOKEN }}
+          ref: ${{ github.event.pull_request.title }}
+          transition: "Merged and Deploy"
+          comment: |
+            [${{ github.event.pull_request.user.login }}] [color:#00875A]merged[/color] pull request from repository [color:#ff8b00]${{ github.repository }}[/color] [color:#00875A]${{ github.event.pull_request.head.ref }}[/color] to [color:#00875A]${{ github.event.pull_request.base.ref }}[/color] branch.
+
+            See the detailed information from pull request [link|${{ github.event.pull_request.html_url }}]
+            Pull request: *${{ github.event.pull_request.title }}*
+

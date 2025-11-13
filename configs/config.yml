@@ -1,0 +1,40 @@
+# Default configuration for EDA Agent Template
+
+# LLM Configuration
+# For Mediatek API, set GAISF_ENDPOINT, GAISF_API_KEY, and GAISF_ACCOUNT_ID environment variables
+# Model name will be retrieved via model info API if not specified
+llm:
+  # Optional: Specify model name (e.g., llama3.1-70b-instruct)
+  # If not specified, will retrieve available model from API
+  # model: "llama3.1-70b-instruct"
+  temperature: 0.0
+  max_tokens: 2000
+
+# Guardrails Configuration
+guardrails:
+  validation_enabled: true
+  max_retries: 3
+  auto_repair: true
+
+# Tool Execution Configuration
+tools:
+  timeout: 300
+  max_memory_mb: 4096
+  sandbox_enabled: true
+
+# Workflow Configuration
+workflow:
+  enable_parallel_execution: false
+  max_concurrent_nodes: 1
+
+# Output Configuration
+output:
+  format: "markdown"
+  save_intermediate_results: true
+  output_directory: "outputs"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+

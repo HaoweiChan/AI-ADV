@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Constraint Schema",
+  "description": "Schema for timing and design constraints",
+  "properties": {
+    "clocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "period": {"type": "number"},
+          "waveform": {
+            "type": "array",
+            "items": {"type": "number"},
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "required": ["name", "period"]
+      }
+    },
+    "input_delays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "port": {"type": "string"},
+          "delay": {"type": "number"},
+          "clock": {"type": "string"}
+        },
+        "required": ["port", "delay"]
+      }
+    },
+    "output_delays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "port": {"type": "string"},
+          "delay": {"type": "number"},
+          "clock": {"type": "string"}
+        },
+        "required": ["port", "delay"]
+      }
+    },
+    "false_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {"type": "string"},
+          "to": {"type": "string"}
+        },
+        "required": ["from", "to"]
+      }
+    },
+    "multicycle_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {"type": "string"},
+          "to": {"type": "string"},
+          "cycles": {"type": "number"}
+        },
+        "required": ["from", "to", "cycles"]
+      }
+    }
+  },
+  "required": ["clocks"]
+}
+
