@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from tools.base_adapter import BaseAdapter
-from tools.openroad_adapter import OpenROADAdapter
-from tools.opensta_adapter import OpenSTAAdapter
-from tools.yosys_adapter import YosysAdapter
+from examples.tools.openroad_adapter import OpenROADAdapter
+from examples.tools.opensta_adapter import OpenSTAAdapter
+from examples.tools.yosys_adapter import YosysAdapter
 
 
 class TestBaseAdapter:

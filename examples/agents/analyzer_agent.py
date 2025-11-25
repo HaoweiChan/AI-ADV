@@ -2,12 +2,14 @@
 
 import os
 import logging
-from typing import Any, Dict, Optional
-
 import requests
+import urllib3
+from typing import Any, Dict, Optional
 from langchain_openai import ChatOpenAI
-
 from agents.base_agent import AgentState, BaseAgent
+
+# Disable SSL warnings for company internal certificates
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,7 @@ class AnalyzerAgent(BaseAgent):
                 "api-key": api_key,
             },
             timeout=60.0,
+            verify=False,
         )
 
         # Initialize ChatOpenAI with custom base URL and API key
@@ -84,23 +87,31 @@ class AnalyzerAgent(BaseAgent):
             First available model name, or None if retrieval fails
         """
         try:
-            info_url = f"https://{self.endpoint}/llm/v3/info"
+            # Use v3/models endpoint which is more standard
+            info_url = f"https://{self.endpoint}/llm/v3/models"
             headers = {
                 "Content-Type": "application/json",
                 "X-User-Id": self.account_id,
                 "api-key": self.api_key,
             }
 
-            response = requests.get(info_url, headers=headers, timeout=10)
+            response = requests.get(info_url, headers=headers, timeout=10, verify=False)
             response.raise_for_status()
 
             info_data = response.json()
-            # Parse model info response to get available models
-            # Adjust parsing based on actual API response structure
-            if isinstance(info_data, dict):
-                models = info_data.get("models", [])
-                if models and isinstance(models, list) and len(models) > 0:
-                    model_name = models[0].get("name") if isinstance(models[0], dict) else models[0]
+            
+            # Support both OpenAI format (data) and custom format (models)
+            models_list = info_data.get("data", []) or info_data.get("models", [])
+            
+            if models_list and isinstance(models_list, list) and len(models_list) > 0:
+                first_model = models_list[0]
+                if isinstance(first_model, dict):
+                    # OpenAI format uses 'id', custom might use 'name'
+                    model_name = first_model.get("id") or first_model.get("name")
+                else:
+                    model_name = first_model
+                
+                if model_name:
                     self.logger.info(f"Retrieved available model: {model_name}")
                     return model_name
 

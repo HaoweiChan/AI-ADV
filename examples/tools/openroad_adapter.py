@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from tools.base_adapter import BaseAdapter
-from tools.utils.subprocess_runner import SubprocessRunner
+from .utils.subprocess_runner import SubprocessRunner
 
 logger = logging.getLogger(__name__)
 

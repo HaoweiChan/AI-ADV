@@ -28,14 +28,14 @@ while ($i <= $#argv)
 end
 
 # Build python command
-set python_cmd = "streamlit run ui/app.py --server.port $port --server.address $host"
+set python_cmd = "streamlit run examples/ui/app.py --server.port $port --server.address $host"
 
 # Execute based on flag
 if ($bsub_flag == 1) then
     module load LSF/mtkgpu
-    bsub -Is -J EDA_UI -q ML_CPU -app ML_CPU -P d_09017 "$python_cmd"
+    bsub -Is -J LongJob -q ML_CPU -app ML_CPU -P d_09017 "$python_cmd"
 else if ($utilq_flag == 1) then
-    utilq -Is -J eda_ui "$python_cmd"
+    utilq -Is -J shortjob_big "$python_cmd"
 else
     setenv CUDA_VISIBLE_DEVICES ""
     eval "$python_cmd"

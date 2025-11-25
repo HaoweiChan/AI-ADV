@@ -12,6 +12,19 @@ A reusable, modular agentic framework for building AI-assisted EDA (Electronic D
 
 ## Quick Start
 
+### GAISF API Key Setup
+
+Before running any workflows, make sure your `.env` file contains valid GAISF credentials:
+
+1. Sign in to the internal portal at `https://mlop-gateway-hwrd.mediatek.inc/auth/login` using your Mediatek account.
+2. Open the API Key Management page, generate (or rotate) a key, and copy the generated **API key** plus the associated **account ID**.
+3. Note the endpoint shown in the portal (e.g., `mlop-gateway-hwrd.mediatek.inc`) and update the following entries in `.env`:
+   - `GAISF_ENDPOINT`
+   - `GAISF_API_KEY`
+   - `GAISF_ACCOUNT_ID`
+
+These values are required for both the CLI and the UI to talk to the Mediatek GAI service.
+
 ### Installation
 
 ```bash
@@ -46,27 +59,27 @@ python examples/drc_log_parser/main.py
 python examples/netlist_stat_analyzer/main.py
 ```
 
-### Using the CLI
+### Using the CLI (example)
 
 ```bash
 # Run workflow on a file
-eda-agent run input.txt --output report.md --format markdown
+python -m examples.ui.cli run input.txt --output report.md --format markdown
 
 # Validate data against schema
-eda-agent validate schema.json data.json
+python -m examples.ui.cli validate schema.json data.json
 
 # List available examples
-eda-agent list-examples
+python -m examples.ui.cli list-examples
 ```
 
-### Using the Web UI
+### Using the Web UI (example)
 
 ```bash
 # Start Streamlit app
-streamlit run ui/app.py
+streamlit run examples/ui/app.py
 ```
 
-Then open your browser to `http://localhost:8501`
+Then open your browser to `http://localhost:8501`.
 
 ## Architecture
 
@@ -90,15 +103,29 @@ Each node validates its output and can trigger retry loops if validation fails.
 
 ```
 eda-agent-template/
-├── agents/              # LangGraph node implementations
-├── tools/              # EDA tool adapters
-├── schemas/            # Guardrails JSON schemas
-├── ui/                 # CLI and Streamlit interfaces
-├── tests/              # Unit and integration tests
-├── examples/           # Example workflows
+├── tools/              # Base adapter interfaces (extend here)
+├── schemas/            # Template-level schemas (e.g., base_schema.json)
+├── ui/                 # Placeholder CLI/Streamlit entry points
+├── tests/              # Placeholder for project-specific tests
+├── examples/           # Example workflows and demo assets
+│   ├── agents/         # Shared LangGraph node implementations
+│   ├── schemas/        # Example-only Guardrails schemas
+│   ├── scripts/        # Example-only helper scripts
+│   ├── tools/          # Example EDA tool adapters
+│   ├── tests/          # Example unit/integration tests
+│   ├── ui/             # Example CLI + Streamlit implementations
+│   ├── drc_log_parser/
+│   ├── netlist_stat_analyzer/
+│   └── timing_report_summary/
+├── agents/             # Shared base classes
+│   └── base_agent.py
 ├── configs/            # Configuration files
 └── README.md           # This file
 ```
+
+> The root-level `schemas/`, `tools/`, `tests/`, and `ui/` directories now ship with
+> placeholders so you can plug in your own implementations. The corresponding example
+> assets live under `examples/`.
 
 ## Configuration
 
@@ -112,6 +139,8 @@ The framework uses Mediatek GAI API (in-house only). Required environment variab
 3. **GAISF_ACCOUNT_ID**: Your account ID (e.g., `mtk10671`)
 
 Copy `.env.example` to `.env` and fill in these values.
+
+See the **GAISF API Key Setup** section above for the portal steps to retrieve these credentials.
 
 **Model Selection**: 
 - If model name is specified in `configs/config.yml`, it will be used
@@ -139,6 +168,8 @@ class MyAgent(BaseAgent):
         # Your processing logic
         return state
 ```
+
+The shared `BaseAgent`/`AgentState` live in `agents/base_agent.py` so new agents can plug into the workflow without depending on the example package.
 
 2. Register it in the workflow:
 
@@ -169,9 +200,11 @@ class MyToolAdapter(BaseAdapter):
 workflow.register_tool("my_tool", MyToolAdapter())
 ```
 
+Example adapters (OpenSTA/OpenROAD/Yosys) now live under `examples/tools/`.
+
 ## Adding New Schemas
 
-1. Create a JSON schema file in `schemas/`:
+1. Create a JSON schema file in `schemas/` (use `schemas/base_schema.json` as a starter and keep example-specific ones under `examples/schemas/`):
 
 ```json
 {
@@ -197,13 +230,13 @@ export PIP_INDEX_URL=<your-company-pypi-mirror>
 pip install -r requirements.txt
 
 # Run all tests
-pytest
+pytest examples/tests
 
 # Run with coverage
-pytest --cov=agents --cov=tools --cov=ui
+pytest --cov=examples.agents --cov=examples.tools --cov=examples.ui examples/tests
 
 # Run specific test file
-pytest tests/test_agents.py
+pytest examples/tests/test_agents.py
 ```
 
 ## Docker

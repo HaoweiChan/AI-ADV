@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import MagicMock
-from tests.conftest import mock_llm, sample_config, sample_parsed_data, sample_state
+from .conftest import mock_llm, sample_config, sample_parsed_data, sample_state
 from agents.base_agent import AgentState
 from examples.agents.parser_agent import ParserAgent
 from examples.agents.analyzer_agent import AnalyzerAgent

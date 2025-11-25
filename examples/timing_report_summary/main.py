@@ -1,14 +1,12 @@
 """Timing report summary example workflow."""
 
-import logging
 import sys
-from pathlib import Path
-
 import yaml
+import logging
 from dotenv import load_dotenv
-
-from agents.workflow import EDAWorkflow
-from tools.opensta_adapter import OpenSTAAdapter
+from pathlib import Path
+from examples.agents.workflow import EDAWorkflow
+from examples.tools.opensta_adapter import OpenSTAAdapter
 
 # Load environment variables from .env file
 load_dotenv()
@@ -90,7 +88,6 @@ Hold violation found: 0.20
     except Exception as e:
         logger.error(f"Workflow failed: {str(e)}", exc_info=True)
         return 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

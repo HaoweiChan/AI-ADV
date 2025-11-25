@@ -1,5 +1,8 @@
-# EDA Agent Template
+"""Shared agent interfaces for the template."""
 
-# Placeholder for __init__.py files
-__version__ = "0.1.0"
+from .base_agent import AgentState, BaseAgent
+
+__all__ = ["AgentState", "BaseAgent"]
+
+
 

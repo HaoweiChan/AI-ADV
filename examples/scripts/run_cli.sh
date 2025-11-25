@@ -44,7 +44,7 @@ while ($i <= $#argv)
 end
 
 # Build python command
-set python_cmd = "python3 -m ui.cli"
+set python_cmd = "python3 -m examples.ui.cli"
 
 if ( "$command" == "run" ) then
     if ( "$input_file" == "" ) then
@@ -78,9 +78,9 @@ endif
 # Execute based on flag
 if ($bsub_flag == 1) then
     module load LSF/mtkgpu
-    bsub -Is -J EDA_CLI -q ML_CPU -app ML_CPU -P d_09017 "$python_cmd"
+    bsub -Is -J LongJob -q ML_CPU -app ML_CPU -P d_09017 "$python_cmd"
 else if ($utilq_flag == 1) then
-    utilq -Is -J eda_cli "$python_cmd"
+    utilq -Is -J shortjob_big "$python_cmd"
 else
     setenv CUDA_VISIBLE_DEVICES ""
     eval "$python_cmd"
