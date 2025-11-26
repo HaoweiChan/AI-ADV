@@ -41,3 +41,10 @@ flake8>=6.1.0
 mypy>=1.7.0
 isort>=5.12.0
 
+# Graph Processing
+networkx>=3.0
+pygmtools>=0.4.0
+torch>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+
