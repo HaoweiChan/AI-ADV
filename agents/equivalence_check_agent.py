@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from agents.base_agent import AgentState, BaseAgent
-from examples.tools.graph_matching_adapter import GraphMatchingAdapter
+from tools.graph_matching_adapter import GraphMatchingAdapter
 
 logger = logging.getLogger(__name__)
 

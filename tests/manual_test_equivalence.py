@@ -6,7 +6,7 @@ import logging
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from examples.agents.equivalence_check_agent import EquivalenceCheckAgent
+from agents.equivalence_check_agent import EquivalenceCheckAgent
 
 logging.basicConfig(level=logging.INFO)
 

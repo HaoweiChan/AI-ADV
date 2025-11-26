@@ -1,12 +1,12 @@
 
 import logging
-import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 import networkx as nx
 import numpy as np
 
 from tools.base_adapter import BaseAdapter
+from tools.netlist_parser import NetlistParser
 
 logger = logging.getLogger(__name__)
 
@@ -67,113 +67,12 @@ class GraphMatchingAdapter(BaseAdapter):
         return {"raw_output": output}
 
     def _netlist_to_graph(self, netlist_content: str) -> nx.DiGraph:
-        """
-        Parses a simple netlist string into a NetworkX DiGraph.
-        Infers direction based on pin naming conventions (Y, Q, Z, OUT = Output).
-        """
-        G = nx.DiGraph()
-        
-        # Regex for simple instance: Type Name ( ... );
-        instance_pattern = re.compile(r'^\s*([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\s*\((.*)\)\s*;')
-        
-        lines = netlist_content.split('\n')
-        
-        # Maps net_name -> list of (instance_name, type='source'|'sink')
-        net_connections: Dict[str, List[Tuple[str, str]]] = {}
-        
-        # Output pin heuristics
-        output_pins = {'Y', 'Q', 'Z', 'O', 'OUT'}
-        
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith('//') or line.startswith('module') or line.startswith('endmodule'):
-                continue
-                
-            match = instance_pattern.match(line)
-            if match:
-                cell_type = match.group(1)
-                inst_name = match.group(2)
-                conn_str = match.group(3)
-                
-                # Add node
-                G.add_node(inst_name, type=cell_type, label=cell_type)
-                
-                # Parse connections: .PIN(NET)
-                # Split by comma
-                conns = [c.strip() for c in conn_str.split(',') if c.strip()]
-                
-                for conn in conns:
-                    # Expected format: .PIN(NET)
-                    if '(' in conn and ')' in conn:
-                        parts = conn.split('(')
-                        pin = parts[0].replace('.', '').strip()
-                        net = parts[1].replace(')', '').strip()
-                        
-                        direction = 'source' if pin in output_pins else 'sink'
-                        
-                        if net not in net_connections:
-                            net_connections[net] = []
-                        net_connections[net].append((inst_name, direction))
-
-        # Build directed edges: Source Instance -> Sink Instance
-        # Also handle primary inputs (nets with no source instance)
-        
-        for net, items in net_connections.items():
-            sources = [inst for inst, dir in items if dir == 'source']
-            sinks = [inst for inst, dir in items if dir == 'sink']
-            
-            if not sources:
-                # Primary Input or Undriven Net
-                # Create a Port Node for this net
-                port_name = f"PIN_{net}"
-                G.add_node(port_name, type='PIN', label='PIN')
-                sources = [port_name]
-                
-            # Connect sources to sinks
-            for src in sources:
-                for snk in sinks:
-                    if src != snk:
-                        G.add_edge(src, snk, net_name=net)
-                        
-        return G
+        """Legacy wrapper using the shared parser."""
+        return NetlistParser.parse_to_graph(netlist_content)
 
     def collapse_dummy_cells(self, G: nx.Graph, dummy_types: Set[str] = None) -> nx.Graph:
-        """
-        Removes dummy nodes and connects their predecessor directly to their successor.
-        Assumes dummies have 1 input and 1 output (SISO).
-        """
-        if dummy_types is None:
-            dummy_types = {'BUF', 'INV', 'DUMMY'}
-            
-        # Create a copy to modify
-        clean_G = G.copy()
-        
-        # Find all dummy nodes
-        dummies = [n for n, attr in clean_G.nodes(data=True) 
-                   if attr.get('type') in dummy_types]
-        
-        for node in dummies:
-            # For DiGraph
-            if isinstance(clean_G, nx.DiGraph):
-                preds = list(clean_G.predecessors(node))
-                succs = list(clean_G.successors(node))
-                
-                # Only collapse if strictly 1-in-1-out (safe chain)
-                if len(preds) == 1 and len(succs) == 1:
-                    u = preds[0]
-                    v = succs[0]
-                    # Add edge directly from predecessor to successor
-                    clean_G.add_edge(u, v)
-                    clean_G.remove_node(node)
-            else:
-                # For Undirected Graph, neighbors are generic
-                nbrs = list(clean_G.neighbors(node))
-                if len(nbrs) == 2:
-                    u, v = nbrs[0], nbrs[1]
-                    clean_G.add_edge(u, v)
-                    clean_G.remove_node(node)
-                    
-        return clean_G
+        """Legacy wrapper using the shared parser utility."""
+        return NetlistParser.collapse_dummy_cells(G, dummy_types)
 
     def get_wl_hash(self, G: nx.Graph, iterations: int = 3) -> str:
         """
@@ -207,9 +106,6 @@ class GraphMatchingAdapter(BaseAdapter):
             
         clean_G = self.collapse_dummy_cells(G, dummy_types)
         
-        # Return generic stats, maybe the graph object if passing in memory?
-        # Since we return dict, we can't return object easily unless we pickle or store in shared state.
-        # For now, return stats and maybe re-serialize (not implemented).
         return {
             "original_nodes": G.number_of_nodes(),
             "clean_nodes": clean_G.number_of_nodes(),
@@ -228,8 +124,6 @@ class GraphMatchingAdapter(BaseAdapter):
         G2 = self._resolve_graph(parsed_data.get('netlist_b'), {'graph': parsed_data.get('graph_b')})
 
         # Convert to pygmtools format
-        # pygmtools expects adjacency matrices and features
-        
         # 1. Build Adjacency Matrices
         n1 = G1.number_of_nodes()
         n2 = G2.number_of_nodes()
@@ -238,7 +132,6 @@ class GraphMatchingAdapter(BaseAdapter):
         adj2 = nx.to_numpy_array(G2)
         
         # 2. Build Node Features (e.g. one-hot encoding of types)
-        # Get all unique types
         types1 = set(nx.get_node_attributes(G1, 'type').values())
         types2 = set(nx.get_node_attributes(G2, 'type').values())
         all_types = sorted(list(types1.union(types2)))
@@ -274,24 +167,23 @@ class GraphMatchingAdapter(BaseAdapter):
             # Ensure pygmtools.utils is available
             from pygmtools import utils as pygm_utils
             
-            # Build Affinity Matrix
-            # K = build_affinity_matrix(A1, A2, F1, F2)
-            # If edge features are needed, we might need to pass None or handle it.
-            # We assume default behavior uses node features + connectivity.
-            K = pygm_utils.build_affinity_matrix(conn1, conn2, F1, F2)
-            
-            # Use RRWM or SM
-            if hasattr(pygmtools, 'rrwm'):
-                X = pygmtools.rrwm(K, n1, n2)
-            elif hasattr(pygmtools, 'sm'):
-                X = pygmtools.sm(K, n1, n2)
-            else:
-                # Fallback to pca_gm if available but unlikely to work without model
-                # Raise error
-                raise NotImplementedError("No learning-free solver (rrwm/sm) found.")
+            if hasattr(pygm_utils, 'build_affinity_matrix'):
+                K = pygm_utils.build_affinity_matrix(conn1, conn2, F1, F2)
                 
+                # Use RRWM or SM
+                if hasattr(pygmtools, 'rrwm'):
+                    X = pygmtools.rrwm(K, n1, n2)
+                elif hasattr(pygmtools, 'sm'):
+                    X = pygmtools.sm(K, n1, n2)
+                else:
+                     raise NotImplementedError("No learning-free solver (rrwm/sm) found.")
+            elif hasattr(pygmtools, 'sm'):
+                 # Fallback if build_affinity_matrix is missing but sm exists
+                 raise NotImplementedError("build_affinity_matrix not found in pygmtools.utils")
+            else:
+                 raise NotImplementedError("Graph Matching tools incomplete in installed pygmtools version.")
+
             # X is the matching matrix (permutation matrix)
-            # Ensure it's a numpy array
             if pygmtools.BACKEND == 'pytorch' and HAS_TORCH and torch.is_tensor(X):
                 X = X.detach().cpu().numpy()
             
@@ -332,4 +224,3 @@ class GraphMatchingAdapter(BaseAdapter):
             
         # Fallback empty
         return nx.DiGraph()
-
