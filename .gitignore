@@ -149,3 +149,6 @@ reports/
 # Docker
 *.dockerignore
 
+# Standalone subprojects (external repos)
+adv_agent/
+
