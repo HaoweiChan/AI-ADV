@@ -1,4 +1,0 @@
-"""Example-only tool adapters."""
-
-
-
