@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "hierarchy_matching_schema.json",
+  "title": "Hierarchy Matching API Input Schema",
+  "description": "Schema for hierarchy matching API requests to map golden netlist paths to target netlists",
+  "type": "object",
+  "required": [
+    "version",
+    "golden_netlist",
+    "target_netlist_dict"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "description": "API version number",
+      "minimum": 1,
+      "default": 1
+    },
+    "golden_netlist": {
+      "type": "string",
+      "description": "Path to the golden/reference netlist file (.scs format)",
+      "pattern": ".*\\.scs$"
+    },
+    "golden_bench_path": {
+      "type": "string",
+      "description": "Path to the golden testbench directory (e.g., maestro bench)"
+    },
+    "target_netlist_dict": {
+      "type": "object",
+      "description": "Dictionary mapping target identifiers to netlist file paths",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Path to target netlist file (.scs format)"
+      },
+      "minProperties": 1
+    },
+    "target_bench_path": {
+      "type": "string",
+      "description": "Output path for the new testbench"
+    },
+    "bench_type": {
+      "type": "string",
+      "description": "Type of testbench",
+      "enum": ["maestro", "ade_xl", "custom"],
+      "default": "maestro"
+    },
+    "simulator": {
+      "type": "string",
+      "description": "Simulator type",
+      "enum": ["spectre", "hspice", "xcelium"],
+      "default": "spectre"
+    },
+    "instance_paths": {
+      "type": "array",
+      "description": "List of hierarchical instance paths to resolve from golden to target",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "options": {
+      "type": "object",
+      "description": "Additional processing options",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "LLM model to use for matching",
+          "default": "llama3.3-70b-instruct"
+        },
+        "verbose": {
+          "type": "boolean",
+          "description": "Enable verbose output",
+          "default": false
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "Validate inputs without processing",
+          "default": false
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": 1,
+      "golden_netlist": "/proj/mtk24231/made_scm_demo/.tmp123/input.scs",
+      "golden_bench_path": "/proj/mtk24231/made_scm_demo/scm_demo/scm_demo/maestro",
+      "target_netlist_dict": {
+        "scm_demo:scm_demo:1": "/proj/mtk24231/made_scm_demo/.tmp123/input1.scs"
+      },
+      "target_bench_path": "/proj/mtk24231/made_scm_demo/scm_demo/scm_demo#2b2/maestro",
+      "bench_type": "maestro",
+      "simulator": "spectre"
+    }
+  ]
+}
+
