@@ -56,29 +56,29 @@ class HierarchyMatchingRequest(BaseModel):
     """Request model for hierarchy matching API."""
 
     version: int = Field(default=1, ge=1, description="API version number")
-    golden_netlist: str = Field(
+    target_netlist: str = Field(
         ...,
-        description="Path to the golden/reference netlist file",
+        description="Path to the target netlist file",
+    )
+    target_bench_path: Optional[str] = Field(
+        default=None,
+        description="Path to the target testbench directory",
+    )
+    target_bench_type: str = Field(
+        default="maestro",
+        description="Type of target testbench",
+    )
+    golden_netlist_dict: Dict[str, str] = Field(
+        ...,
+        description="Dictionary mapping golden identifiers to netlist file paths",
     )
     golden_bench_path: Optional[str] = Field(
         default=None,
         description="Path to the golden testbench directory",
     )
-    target_netlist_dict: Dict[str, str] = Field(
-        ...,
-        description="Dictionary mapping target identifiers to netlist file paths",
-    )
-    target_bench_path: Optional[str] = Field(
-        default=None,
-        description="Output path for the new testbench",
-    )
-    bench_type: str = Field(
+    golden_bench_type: str = Field(
         default="maestro",
-        description="Type of testbench",
-    )
-    simulator: str = Field(
-        default="spectre",
-        description="Simulator type",
+        description="Type of golden testbench",
     )
     instance_paths: List[str] = Field(
         default_factory=list,
@@ -89,11 +89,11 @@ class HierarchyMatchingRequest(BaseModel):
         description="Additional processing options",
     )
 
-    @field_validator("target_netlist_dict")
+    @field_validator("golden_netlist_dict")
     @classmethod
-    def validate_target_dict_not_empty(cls, v: Dict[str, str]) -> Dict[str, str]:
+    def validate_golden_dict_not_empty(cls, v: Dict[str, str]) -> Dict[str, str]:
         if not v:
-            raise ValueError("target_netlist_dict must have at least one entry")
+            raise ValueError("golden_netlist_dict must have at least one entry")
         return v
 
 
@@ -113,9 +113,9 @@ class PathResolutionRequest(BaseModel):
         ...,
         description="Hierarchical instance path to resolve",
     )
-    target_key: Optional[str] = Field(
+    golden_key: Optional[str] = Field(
         default=None,
-        description="Specific target netlist key to use",
+        description="Specific golden netlist key to use",
     )
 
 
@@ -124,7 +124,7 @@ class PathResolutionResponse(BaseModel):
 
     input_path: str
     resolved_path: str
-    target_key: Optional[str] = None
+    golden_key: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
 
 
@@ -139,15 +139,15 @@ def get_agent(config: Dict[str, Any]) -> HierarchyMatchingAgent:
 
     # Check if we need to reinitialize
     config_key = {
-        "golden_netlist": config.get("golden_netlist"),
-        "target_netlist_dict": str(config.get("target_netlist_dict")),
+        "target_netlist": config.get("target_netlist"),
+        "golden_netlist_dict": str(config.get("golden_netlist_dict")),
     }
     if _agent_instance is None or _agent_config != config_key:
         _agent_instance = HierarchyMatchingAgent(config=config.get("options", {}))
         _agent_instance.llm_client = _agent_instance._init_llm_client()
         _agent_instance._load_netlists(
-            config["golden_netlist"],
-            config["target_netlist_dict"],
+            config["target_netlist"],
+            config["golden_netlist_dict"],
         )
         _agent_config = config_key
 
@@ -175,13 +175,13 @@ async def hierarchy_matching(request: HierarchyMatchingRequest) -> HierarchyMatc
     """
     Process hierarchy matching request.
 
-    This endpoint accepts a JSON payload containing golden and target netlist paths,
+    This endpoint accepts a JSON payload containing target and golden netlist paths,
     along with instance paths to resolve. It returns the matching paths in the
-    target netlists.
+    golden netlists.
     """
     logger.info(f"Received hierarchy matching request: version={request.version}")
-    logger.info(f"Golden netlist: {request.golden_netlist}")
-    logger.info(f"Target netlists: {list(request.target_netlist_dict.keys())}")
+    logger.info(f"Target netlist: {request.target_netlist}")
+    logger.info(f"Golden netlists: {list(request.golden_netlist_dict.keys())}")
 
     # Check if dry run
     if request.options.dry_run:
@@ -189,23 +189,23 @@ async def hierarchy_matching(request: HierarchyMatchingRequest) -> HierarchyMatc
             success=True,
             message="Dry run validation passed",
             data={
-                "golden_netlist": request.golden_netlist,
-                "target_netlist_dict": request.target_netlist_dict,
+                "target_netlist": request.target_netlist,
+                "golden_netlist_dict": request.golden_netlist_dict,
                 "instance_paths": request.instance_paths,
             },
         )
 
     # Validate file existence
-    if not os.path.exists(request.golden_netlist):
+    if not os.path.exists(request.target_netlist):
         raise HTTPException(
             status_code=400,
-            detail=f"Golden netlist not found: {request.golden_netlist}",
+            detail=f"Target netlist not found: {request.target_netlist}",
         )
-    for key, path in request.target_netlist_dict.items():
+    for key, path in request.golden_netlist_dict.items():
         if not os.path.exists(path):
             raise HTTPException(
                 status_code=400,
-                detail=f"Target netlist [{key}] not found: {path}",
+                detail=f"Golden netlist [{key}] not found: {path}",
             )
 
     try:
@@ -219,8 +219,8 @@ async def hierarchy_matching(request: HierarchyMatchingRequest) -> HierarchyMatc
         # Prepare state
         state = {
             "input_data": {
-                "golden_netlist": request.golden_netlist,
-                "target_netlist_dict": request.target_netlist_dict,
+                "target_netlist": request.target_netlist,
+                "golden_netlist_dict": request.golden_netlist_dict,
                 "instance_paths": request.instance_paths,
                 "model": request.options.model,
             }
@@ -244,10 +244,10 @@ async def hierarchy_matching(request: HierarchyMatchingRequest) -> HierarchyMatc
                 "analysis_results": result.get("analysis_results"),
                 "report": result.get("report"),
                 "metadata": {
-                    "golden_bench_path": request.golden_bench_path,
                     "target_bench_path": request.target_bench_path,
-                    "bench_type": request.bench_type,
-                    "simulator": request.simulator,
+                    "target_bench_type": request.target_bench_type,
+                    "golden_bench_path": request.golden_bench_path,
+                    "golden_bench_type": request.golden_bench_type,
                 },
             },
         )
@@ -260,8 +260,8 @@ async def hierarchy_matching(request: HierarchyMatchingRequest) -> HierarchyMatc
 @app.post("/api/v1/resolve-path", response_model=PathResolutionResponse)
 async def resolve_single_path(
     request: PathResolutionRequest,
-    golden_netlist: str,
-    target_netlist_dict: str,
+    target_netlist: str,
+    golden_netlist_dict: str,
 ) -> PathResolutionResponse:
     """
     Resolve a single hierarchical path.
@@ -270,27 +270,27 @@ async def resolve_single_path(
     after the netlists have been loaded.
     """
     try:
-        # Parse target_netlist_dict from JSON string
-        target_dict = json.loads(target_netlist_dict)
+        # Parse golden_netlist_dict from JSON string
+        golden_dict = json.loads(golden_netlist_dict)
     except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid target_netlist_dict JSON: {e}",
+            detail=f"Invalid golden_netlist_dict JSON: {e}",
         )
 
     config = {
-        "golden_netlist": golden_netlist,
-        "target_netlist_dict": target_dict,
+        "target_netlist": target_netlist,
+        "golden_netlist_dict": golden_dict,
     }
 
     try:
         agent = get_agent(config)
-        result = agent.resolve_path(request.instance_path, request.target_key)
+        result = agent.resolve_path(request.instance_path, request.golden_key)
 
         return PathResolutionResponse(
             input_path=request.instance_path,
             resolved_path=result.get("resolved_path", "N/A"),
-            target_key=request.target_key,
+            golden_key=request.golden_key,
             details=result.get("steps"),
         )
 
