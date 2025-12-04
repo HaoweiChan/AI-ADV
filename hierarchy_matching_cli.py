@@ -20,14 +20,14 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Match hierarchical paths between golden and target netlists.",
+        description="Match hierarchical paths between target and golden netlists.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Using command line arguments
   python hierarchy_matching_cli.py \\
-    --golden /path/to/golden.scs \\
-    --target key1:/path/to/target1.scs \\
+    --target /path/to/target.scs \\
+    --golden key1:/path/to/golden1.scs \\
     --path "X_ADC/X_AMP/vin"
 
   # Using JSON config file
@@ -35,8 +35,8 @@ Examples:
 
   # Interactive mode
   python hierarchy_matching_cli.py \\
-    --golden /path/to/golden.scs \\
-    --target key1:/path/to/target1.scs \\
+    --target /path/to/target.scs \\
+    --golden key1:/path/to/golden1.scs \\
     --interactive
         """,
     )
@@ -49,15 +49,15 @@ Examples:
         help="Path to JSON config file (overrides other options)",
     )
     input_group.add_argument(
-        "--golden",
-        type=str,
-        help="Path to golden netlist file",
-    )
-    input_group.add_argument(
         "--target",
         type=str,
+        help="Path to target netlist file",
+    )
+    input_group.add_argument(
+        "--golden",
+        type=str,
         action="append",
-        help="Target netlist in format 'key:path' (can be repeated)",
+        help="Golden netlist in format 'key:path' (can be repeated)",
     )
     input_group.add_argument(
         "--path",
@@ -111,41 +111,41 @@ Examples:
         with open(args.config, "r") as f:
             config = json.load(f)
     else:
-        if not args.golden:
-            logger.error("Either --config or --golden is required")
-            parser.print_help()
-            sys.exit(1)
         if not args.target:
             logger.error("Either --config or --target is required")
             parser.print_help()
             sys.exit(1)
+        if not args.golden:
+            logger.error("Either --config or --golden is required")
+            parser.print_help()
+            sys.exit(1)
 
         # Build config from arguments
-        target_dict = {}
-        for t in args.target:
-            if ":" not in t:
-                logger.error(f"Invalid target format: {t}. Expected 'key:path'")
+        golden_dict = {}
+        for g in args.golden:
+            if ":" not in g:
+                logger.error(f"Invalid golden format: {g}. Expected 'key:path'")
                 sys.exit(1)
-            key, path = t.split(":", 1)
-            target_dict[key] = path
+            key, path = g.split(":", 1)
+            golden_dict[key] = path
 
         config = {
             "version": 1,
-            "golden_netlist": args.golden,
-            "target_netlist_dict": target_dict,
+            "target_netlist": args.target,
+            "golden_netlist_dict": golden_dict,
             "instance_paths": args.path or [],
             "options": {"model": args.model},
         }
 
     # Validate paths
-    golden_path = config.get("golden_netlist")
-    if not os.path.exists(golden_path):
-        logger.error(f"Golden netlist not found: {golden_path}")
+    target_path = config.get("target_netlist")
+    if not os.path.exists(target_path):
+        logger.error(f"Target netlist not found: {target_path}")
         sys.exit(1)
 
-    for key, path in config.get("target_netlist_dict", {}).items():
+    for key, path in config.get("golden_netlist_dict", {}).items():
         if not os.path.exists(path):
-            logger.error(f"Target netlist [{key}] not found: {path}")
+            logger.error(f"Golden netlist [{key}] not found: {path}")
             sys.exit(1)
 
     # Initialize agent
@@ -167,8 +167,8 @@ def run_batch(agent: HierarchyMatchingAgent, config: dict, output_path: str = No
 
     state = {
         "input_data": {
-            "golden_netlist": config["golden_netlist"],
-            "target_netlist_dict": config["target_netlist_dict"],
+            "target_netlist": config["target_netlist"],
+            "golden_netlist_dict": config["golden_netlist_dict"],
             "instance_paths": instance_paths,
             "model": config.get("options", {}).get("model", "llama3.3-70b-instruct"),
         }
@@ -207,20 +207,20 @@ def run_batch(agent: HierarchyMatchingAgent, config: dict, output_path: str = No
 def run_interactive(agent: HierarchyMatchingAgent, config: dict):
     """Run interactive mode."""
     print("\n=== Hierarchy Matching Interactive Mode ===")
-    print(f"Golden Netlist: {config['golden_netlist']}")
-    print(f"Target Netlists: {list(config['target_netlist_dict'].keys())}")
+    print(f"Target Netlist: {config['target_netlist']}")
+    print(f"Golden Netlists: {list(config['golden_netlist_dict'].keys())}")
 
     # Initialize agent with netlists
     agent.llm_client = agent._init_llm_client()
     agent._load_netlists(
-        config["golden_netlist"],
-        config["target_netlist_dict"],
+        config["target_netlist"],
+        config["golden_netlist_dict"],
     )
 
     # Show available subcircuits
-    print(f"\nGolden subcircuits: {list(agent.golden_parser.subckts.keys())}")
-    for key, parser in agent.target_parsers.items():
-        print(f"Target [{key}] subcircuits: {list(parser.subckts.keys())}")
+    print(f"\nTarget subcircuits: {list(agent.target_parser.subckts.keys())}")
+    for key, parser in agent.golden_parsers.items():
+        print(f"Golden [{key}] subcircuits: {list(parser.subckts.keys())}")
 
     print("\nEnter instance paths to resolve (type 'exit' to quit):")
 
