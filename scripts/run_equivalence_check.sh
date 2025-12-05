@@ -25,9 +25,9 @@ set python_cmd = "python3 equivalence_check_cli.py $python_args"
 # Execute based on flag
 if ($bsub_flag == 1) then
     module load LSF/mtkgpu
-    bsub -Is -J EqCheck -q ML_CPU -app ML_CPU -P d_09017 "$python_cmd"
+    bsub -Is -J LongJob -q ML_CPU -app ML_CPU -P Develop "$python_cmd"
 else if ($utilq_flag == 1) then
-    utilq -Is -J eq_check "$python_cmd"
+    utilq -Is -J shortjob_big "$python_cmd"
 else
     setenv CUDA_VISIBLE_DEVICES ""
     eval "$python_cmd"
