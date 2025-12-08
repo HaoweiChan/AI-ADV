@@ -144,4 +144,3 @@ class SpiceParser:
             return non_param_parts[-1]
 
         return None
-

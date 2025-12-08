@@ -231,3 +231,4 @@ class NetlistParser:
                     clean_G.remove_node(node)
                     
         return clean_G
+
