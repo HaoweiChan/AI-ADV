@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "target_netlist": "data/target.scs",
+  "golden_netlist_dict": {
+    "golden1": "data/golden.scs"
+  },
+  "instance_paths": [
+    "I_ADC_V2/I_AMP_NEW"
+  ],
+  "options": {
+    "model": "llama3.3-70b-instruct",
+    "verbose": true,
+    "dry_run": false
+  }
+}
+
