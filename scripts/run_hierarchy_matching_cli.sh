@@ -3,6 +3,14 @@
 # Source the environment setup script
 source scripts/setup_env.sh
 
+# Add adv_agent to PYTHONPATH to fix import src error
+set current_dir = `pwd`
+if ( $?PYTHONPATH ) then
+    setenv PYTHONPATH "${current_dir}/adv_agent:${PYTHONPATH}"
+else
+    setenv PYTHONPATH "${current_dir}/adv_agent"
+endif
+
 # Parse arguments - filter out --bsub and --utilq before passing to python
 set python_args = ""
 foreach arg ($argv)
