@@ -314,11 +314,7 @@ async def list_subcircuits(netlist_path: str) -> Dict[str, Any]:
 
     try:
         # Import here to avoid circular imports
-        ADV_AGENT_PATH = os.path.join(PROJECT_ROOT, "adv_agent")
-        if ADV_AGENT_PATH not in sys.path:
-            sys.path.insert(0, ADV_AGENT_PATH)
-
-        from src.netlist_parser import SpiceParser
+        from tools.spice_parser import SpiceParser
 
         parser = SpiceParser(netlist_path)
         return {

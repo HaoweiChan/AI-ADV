@@ -14,13 +14,8 @@ from agents.prompts.hierarchy_prompts import (
     STEP3_FINAL_USER_PROMPT,
 )
 
-# Add adv_agent to path to import its modules without modifying them
-ADV_AGENT_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "adv_agent")
-if ADV_AGENT_PATH not in sys.path:
-    sys.path.insert(0, ADV_AGENT_PATH)
-
-from src.llm_client import LLMClient
-from src.netlist_parser import SpiceParser
+from tools.llm_client import LLMClient
+from tools.spice_parser import SpiceParser
 
 logger = logging.getLogger(__name__)
 
