@@ -3,14 +3,6 @@
 # Source the environment setup script
 source scripts/setup_env.sh
 
-# Add adv_agent to PYTHONPATH to fix import src error
-set current_dir = `pwd`
-if ( $?PYTHONPATH ) then
-    setenv PYTHONPATH "${current_dir}/adv_agent:${PYTHONPATH}"
-else
-    setenv PYTHONPATH "${current_dir}/adv_agent"
-endif
-
 # Set default port and host
 if ( ! $?PORT ) then
     setenv PORT 8000
