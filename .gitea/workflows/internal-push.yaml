@@ -65,20 +65,20 @@ jobs:
         with:
           username: ${{ secrets.AAS1_DOCKER_USERNAME }}
           password: ${{ secrets.AAS1_DOCKER_PASSWORD }}
-          registry: mtkhmcr.mediatek.inc
+          registry: ${{ secrets.DOCKER_REGISTRY }}
 
       - name: get metadata
         id: sha
         run: |
-          echo REPO_NAME=$(echo ${ GITHUB_REPOSITORY } | awk -F"/" '{ print tolower($2) }') >> $GITHUB_OUTPUT
-          echo GITHUB_SHA=${ GITHUB_SHA } >> $GITHUB_OUTPUT
+          echo REPO_NAME=$(echo ${GITHUB_REPOSITORY} | awk -F"/" '{ print tolower($2) }') >> $GITHUB_OUTPUT
+          echo GITHUB_SHA=${GITHUB_SHA} >> $GITHUB_OUTPUT
 
       - name: Docker metadata
         id: meta
         uses: actions/metadata-action@v1.0.0
         with:
           images: |
-            mtkhmcr.mediatek.inc/${{ env.DOCKER_ORG }}/${{ steps.sha.outputs.REPO_NAME }}
+            ${{ secrets.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/${{ steps.sha.outputs.REPO_NAME }}
           tags: |
             type=semver,pattern={{ version }},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=sha,priority=100,prefix=,suffix=,format=long
@@ -104,5 +104,5 @@ jobs:
             LIC_DVCBOT_NET_KEY=${{ secrets.LIC_DVCBOT_NET_KEY }}
             HTTPS_PROXY=http://mtkhproxy:3128
             HTTP_PROXY=http://mtkhproxy:3128
-          cache-from: type=registry,ref=mtkhmcr.mediatek.inc/${{ env.DOCKER_ORG }}/${{ steps.sha.outputs.REPO_NAME }}:buildcache
-          cache-to: type=registry,ref=mtkhmcr.mediatek.inc/${{ env.DOCKER_ORG }}/${{ steps.sha.outputs.REPO_NAME }}:buildcache,image-manifest=true,oci-mediatypes=true,mode=max
+          cache-from: type=registry,ref=${{ secrets.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/${{ steps.sha.outputs.REPO_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/${{ steps.sha.outputs.REPO_NAME }}:buildcache,image-manifest=true,oci-mediatypes=true,mode=max
