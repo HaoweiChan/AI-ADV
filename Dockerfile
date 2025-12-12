@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS internalimage
+FROM mtkhmcr.mediatek.inc/public/python:3.11-slim AS internalimage
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
