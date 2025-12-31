@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mke-aas1-deploy
+  namespace: srv-mke-aas1
+  labels:
+    app: mke-aas1-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mke-aas1-deploy
+  template:
+    metadata:
+      labels:
+        app: mke-aas1-deploy
+    spec:
+      containers:
+      - name: nginx
+        image: mtkomcr.mediatek.inc/srv-mke-aas1/nginx:latest
+        resources:
+          limits:
+            cpu: 256m
+            memory: 512Mi
+          requests:
+            cpu: 128m
+            memory: 256Mi
+      imagePullSecrets:
+      - name: mke-aas1-harbor-secret
