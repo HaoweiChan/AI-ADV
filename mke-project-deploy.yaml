@@ -16,14 +16,45 @@ spec:
         app: mke-aas1-deploy
     spec:
       containers:
-      - name: nginx
-        image: mtkomcr.mediatek.inc/srv-mke-aas1/nginx:latest
+      - name: hierarchy-matching-api
+        image: mtkomcr.mediatek.inc/srv-mke-aas1/hierarchy-matching-api:latest
+        ports:
+        - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
         resources:
           limits:
-            cpu: 256m
-            memory: 512Mi
+            cpu: 1000m
+            memory: 2Gi
           requests:
-            cpu: 128m
-            memory: 256Mi
+            cpu: 500m
+            memory: 1Gi
       imagePullSecrets:
       - name: mke-aas1-harbor-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mke-aas1-service
+  namespace: srv-mke-aas1
+  labels:
+    app: mke-aas1-deploy
+spec:
+  type: NodePort
+  selector:
+    app: mke-aas1-deploy
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
