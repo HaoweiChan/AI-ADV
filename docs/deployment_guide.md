@@ -9,6 +9,22 @@ This guide describes how to deploy the Hierarchy Matching API to the MKE Kuberne
 - Docker installed and running locally (or on the build server).
 - Access to the `mtkomcr.mediatek.inc` registry.
 
+## Deployment Script
+
+A helper script is available in `scripts/deploy_to_mke.sh` to automate the build, push, and deployment process.
+
+```bash
+# Run the full deployment
+./scripts/deploy_to_mke.sh
+
+# Skip build and push (deploy only)
+./scripts/deploy_to_mke.sh --no-build --no-push
+```
+
+## Manual Deployment Steps
+
+If you prefer to deploy manually, follow the steps below.
+
 ## 1. Build the Docker Image
 
 Navigate to the root of the repository and build the Docker image using the provided `Dockerfile`.
